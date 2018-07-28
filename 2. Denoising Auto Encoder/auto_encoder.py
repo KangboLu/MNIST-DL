@@ -48,7 +48,7 @@ class AdditiveGaussianNoiseAutoEncoder(object):
     all_weights = dict()
     all_weights['w1'] = tf.Variable(xavier_init(self.n_input, self.n_hidden)) # set weight with xavier init
     all_weights['b1'] = tf.Variable(tf.zeros([self.n_hidden], dtype = tf.float32)) # set bias to 0
-    all_weights['w2'] = tf.Variable(tf.zeros([self.hidden, self.n_input], dtype = tf.float32)) # set reconstruction weight to 0
+    all_weights['w2'] = tf.Variable(tf.zeros([self.n_hidden, self.n_input], dtype = tf.float32)) # set reconstruction weight to 0
     all_weights['b2'] = tf.Variable(tf.zeros([self.n_input], dtype = tf.float32)) # set bias to 0
     return all_weights
 
@@ -83,3 +83,56 @@ class AdditiveGaussianNoiseAutoEncoder(object):
   # get bias from hidden layer
   def get_biases(self):
     return self.sess.run(self.weights['b1'])
+
+# ===============================================================
+# testing Additive Gaussian Noise Auto Encoder with MNIST dataset
+# ===============================================================
+
+# read MNIST dataset with one hot encoding
+mnist = input_data.read_data_sets('MNIST_data', one_hot = True)
+
+# function to obtain random block of data
+def get_random_block(data, batch_size):
+  start_index = np.random.randint(0, len(data) - batch_size)
+  return data[start_index:(start_index + batch_size)]
+
+# standardize traning and test data
+def standard_scale(X_train, X_test):
+  preprocessor = prep.StandardScaler().fit(X_train)
+  X_train = preprocessor.transform(X_train)
+  X_test = preprocessor.transform(X_test)
+  return X_train, X_test
+X_train, X_test = standard_scale(mnist.train.images, mnist.test.images)
+
+# set up parameters for training
+n_samples = int(mnist.train.num_examples)
+training_epochs = 20
+batch_size = 128
+display_step = 1 # display cost for each epoch
+
+# create AdditiveGaussianNoiseAutoEncoder instance
+auto_encoder = AdditiveGaussianNoiseAutoEncoder(n_input = 784,
+                 n_hidden = 200,
+                 transfer_function = tf.nn.softplus,
+                 optimizer = tf.train.AdamOptimizer(learning_rate = 0.001),
+                 scale = 0.01)
+
+# start training
+for epoch in range(training_epochs):
+  avg_cost = 0
+  total_batch = int(n_samples / batch_size)
+
+  # iterate all the batches
+  for i in range(total_batch):
+    batch_xs = get_random_block(X_train, batch_size)
+
+    # obatin cost by parsing batch to fit training
+    cost = auto_encoder.partial_fit(batch_xs)
+    avg_cost += cost / n_samples * batch_size # increment avg cost
+
+  # print each epoch's cost
+  if epoch % display_step == 0:
+    print("epoch: ", '%04d' % (epoch + 1), "cost=", "{:.9f}".format(avg_cost))
+
+# output total cost by parsing test data
+print("Total cost: " + str(auto_encoder.calc_total_cost(X_test)))
