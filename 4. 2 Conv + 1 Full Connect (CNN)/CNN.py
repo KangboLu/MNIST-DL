@@ -1,14 +1,14 @@
  # import MNIST dataset and tensorflow
 from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf 
-mnist = inpyt_data.read_data_sets("MNIST_data/", one_hot=True)
+mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 # create a interactive session
 sess = tf.InteractiveSession()
 
 # helper function to initialize weight
 def weight_initializer(shape):
-	return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
+  return tf.Variable(tf.truncated_normal(shape, stddev=0.1))
 
 # heper function to initialize bias
 def bias_initializer(shape):
@@ -46,7 +46,7 @@ h_fc1 = tf.nn.relu(tf.matmul(h_pool2_1d, w_fc1) + b_fc1)
 
 # define dropout layer to prevent overfitting
 keep_prob = tf.placeholder(tf.float32)
-h_fc1_drop(h_fc1, keep_prob)
+h_fc1_drop = tf.nn.dropout(h_fc1, keep_prob)
 
 # define softmax layer with dropout layer's output as input
 w_fc2 = weight_initializer([1024, 10])
@@ -56,9 +56,25 @@ y_conv = tf.nn.softmax(tf.matmul(h_fc1_drop, w_fc2) + b_fc2)
 # define loss function and use Adam optimizer
 y_ = tf.placeholder(tf.float32, [None, 10]) # labels
 cross_entropy = tf.reduce_mean(-tf.reduce_sum(y_ * tf.log(y_conv),
-                                              reduction_indices=[1]))
-train_step = tf.train.AdamOptimizer(1e-4).minimizer(cross_entropy)
+  reduction_indices=[1]))
+train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
 # define how accuracy calculation
 correct_prediction = tf.equal(tf.argmax(y_conv,1), tf.argmax(y_,1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+# initialize global variables
+tf.global_variables_initializer().run()
+
+# training steps
+for i in range(20000):
+  batch = mnist.train.next_batch(50)
+  # for every 100 iteration, evaluate the accuracy
+  if i % 100 == 0:
+    train_accuracy = accuracy.eval(feed_dict={x:batch[0], y_:batch[1], keep_prob:1.0})
+    print("Step %d, trainning accuracy %g"%(i, train_accuracy))
+  train_step.run(feed_dict={x:batch[0], y_:batch[1], keep_prob:0.5})
+
+# finish training, test the model
+print("Test accuracy %g"%accuracy.eval(feed_dict={x: mnist.test.images, 
+  y_: mnist.test.labels, keep_prob: 1.0}))
